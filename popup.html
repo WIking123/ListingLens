@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ListingLens 2.0</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 340px;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      font-size: 14px;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1d4ed8 100%);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::after {
+      content: '';
+      position: absolute;
+      top: -30px; right: -30px;
+      width: 120px; height: 120px;
+      background: radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .header-dot {
+      width: 7px; height: 7px;
+      background: #4ade80;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(74,222,128,0.8);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 6px rgba(74,222,128,0.8); }
+      50% { box-shadow: 0 0 12px rgba(74,222,128,1), 0 0 20px rgba(74,222,128,0.4); }
+    }
+    .header-logo {
+      font-size: 14px; font-weight: 700;
+      color: white; letter-spacing: -0.3px;
+    }
+    .header-badge {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(4px);
+      font-size: 10px; font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      padding: 2px 6px; border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Body ── */
+    .body { padding: 14px; }
+
+    /* ── Status card ── */
+    .status-card {
+      background: white;
+      border-radius: 12px;
+      padding: 11px 13px;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .status-icon { font-size: 18px; flex-shrink: 0; }
+    .status-text { font-size: 13px; font-weight: 600; color: #0f172a; }
+    .status-sub { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+
+    /* ── Stats ── */
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px; margin-bottom: 10px;
+    }
+    .stat-card {
+      background: white; border-radius: 12px;
+      padding: 12px; text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .stat-num { font-size: 26px; font-weight: 800; color: #1d4ed8; line-height: 1; }
+    .stat-num.pro { color: #16a34a; }
+    .stat-label { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+
+    /* ── Pro card ── */
+    .pro-card {
+      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+      border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 10px; display: flex;
+      align-items: center; gap: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .pro-icon { font-size: 20px; }
+    .pro-text { font-size: 13px; font-weight: 700; color: #166534; }
+    .pro-sub { font-size: 11px; color: #4ade80; margin-top: 1px; }
+
+    /* ── Upgrade card ── */
+    .upgrade-card {
+      background: linear-gradient(135deg, #1e1b4b, #312e81, #1d4ed8);
+      border-radius: 14px; padding: 16px;
+      margin-bottom: 10px; position: relative; overflow: hidden;
+      box-shadow: 0 4px 20px rgba(29,78,216,0.35);
+    }
+    .upgrade-card::before {
+      content: '';
+      position: absolute; top: -40px; right: -40px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(139,92,246,0.3) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .upgrade-title { font-size: 14px; font-weight: 800; color: white; margin-bottom: 4px; }
+    .upgrade-sub { font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 10px; line-height: 1.4; }
+    .upgrade-price {
+      font-size: 24px; font-weight: 800; color: white;
+      display: flex; align-items: baseline; gap: 5px; margin-bottom: 12px;
+    }
+    .upgrade-price span { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.6); }
+    .btn-upgrade {
+      width: 100%; padding: 11px;
+      background: white; color: #1d4ed8;
+      border: none; border-radius: 9px;
+      font-size: 13px; font-weight: 800;
+      cursor: pointer; transition: all 0.15s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .btn-upgrade:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.2); }
+
+    /* ── Features ── */
+    .features { margin-bottom: 10px; }
+    .features-title {
+      font-size: 10px; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
+    }
+    .feature-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: #475569; padding: 4px 0;
+    }
+    .feature-icon { font-size: 13px; flex-shrink: 0; }
+    .feature-new {
+      font-size: 9px; font-weight: 800; color: #7c3aed;
+      background: #ede9fe; border-radius: 4px;
+      padding: 1px 5px; margin-left: auto; letter-spacing: 0.3px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      border-top: 1px solid #f1f5f9;
+      padding: 10px 14px;
+      display: flex; align-items: center;
+      justify-content: space-between;
+      background: white;
+    }
+    .footer-link {
+      font-size: 11px; color: #94a3b8;
+      text-decoration: none; cursor: pointer;
+      transition: color 0.15s; background: none; border: none;
+      font-family: inherit;
+    }
+    .footer-link:hover { color: #1d4ed8; }
+    .footer-link.danger:hover { color: #dc2626; }
+    .footer-sep { color: #e2e8f0; font-size: 11px; }
+
+    /* ── Activate by email row ── */
+    .activate-row { display:flex; gap:6px; margin-top:10px; }
+    .email-input {
+      flex:1; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px;
+      font-size:12px; outline:none;
+    }
+    .email-input:focus { border-color:#2563eb; }
+    .btn-activate {
+      padding:8px 12px; border:none; border-radius:8px; background:#1e293b;
+      color:#fff; font-size:12px; font-weight:600; cursor:pointer;
+    }
+    .btn-activate:disabled { opacity:.6; cursor:default; }
+    .activate-msg { font-size:11px; margin-top:6px; min-height:14px; }
+    .activate-msg.ok { color:#16a34a; }
+    .activate-msg.err { color:#dc2626; }
+
+    /* ── Support email display ── */
+    .support-email {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #1d4ed8;
+      text-align: center;
+      margin: 0 14px 10px;
+      font-family: monospace;
+      cursor: pointer;
+      display: none;
+      transition: background 0.15s;
+    }
+    .support-email:hover { background: #eff6ff; }
+    .support-email .copy-hint { color: #94a3b8; font-size: 10px; margin-top: 2px; }
+
+    /* ── Cancel confirm ── */
+    .cancel-confirm {
+      background: #fef2f2; border-radius: 10px;
+      padding: 12px; margin: 0 14px 10px; display: none;
+    }
+    .cancel-confirm-text { font-size: 12px; color: #991b1b; margin-bottom: 10px; line-height: 1.5; }
+    .cancel-confirm-btns { display: flex; gap: 8px; }
+    .btn-cancel-yes {
+      flex: 1; padding: 8px; background: #dc2626; color: white;
+      border: none; border-radius: 7px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-cancel-no {
+      flex: 1; padding: 8px; background: white; color: #64748b;
+      border: 1px solid #e2e8f0; border-radius: 7px; font-size: 12px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <div class="header-dot"></div>
+      <span class="header-logo">🏠 ListingLens</span>
+      <span class="header-badge">2.0</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="status-card" id="status-card">
+      <div class="status-icon" id="status-icon">⚡</div>
+      <div>
+        <div class="status-text" id="status-text">Loading...</div>
+        <div class="status-sub" id="status-sub"></div>
+      </div>
+    </div>
+
+    <div class="pro-card" id="pro-card" style="display:none">
+      <div class="pro-icon">⭐</div>
+      <div>
+        <div class="pro-text">Pro — Unlimited Access</div>
+        <div class="pro-sub" style="color:#16a34a">All features unlocked</div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-num" id="stat-used">—</div>
+        <div class="stat-label">Analyses done</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="stat-remaining">—</div>
+        <div class="stat-label">Remaining</div>
+      </div>
+    </div>
+
+    <div class="upgrade-card" id="upgrade-card">
+      <div class="upgrade-title">🚀 Unlock Pro</div>
+      <div class="upgrade-sub">Offer Generator · Negotiation Tips · PDF Reports · Unlimited analyses</div>
+      <div class="upgrade-price">$24 <span>/month · 7-day free trial</span></div>
+      <button class="btn-upgrade" id="upgrade-btn">Start free trial →</button>
+      <div class="activate-row">
+        <input class="email-input" id="email-input" type="email" placeholder="Subscribed? Enter your email" />
+        <button class="btn-activate" id="activate-btn">Activate</button>
+      </div>
+      <div class="activate-msg" id="activate-msg"></div>
+    </div>
+
+    <div class="features">
+      <div class="features-title">What's included</div>
+      <div class="feature-item"><span class="feature-icon">💰</span> Price score vs Zestimate</div>
+      <div class="feature-item"><span class="feature-icon">🚩</span> Red & green flags</div>
+      <div class="feature-item"><span class="feature-icon">✉️</span> Draft client email</div>
+      <div class="feature-item"><span class="feature-icon">📋</span> Offer Generator <span class="feature-new">NEW</span></div>
+      <div class="feature-item"><span class="feature-icon">🤝</span> Negotiation Tips <span class="feature-new">NEW</span></div>
+      <div class="feature-item"><span class="feature-icon">📊</span> Comparable Sales <span class="feature-new">NEW</span></div>
+      <div class="feature-item"><span class="feature-icon">📄</span> Client Report <span class="feature-new">NEW</span></div>
+    </div>
+  </div>
+
+  <!-- Support email (shown on click) -->
+  <div class="support-email" id="support-email-box" onclick="copyEmail()">
+    listinglens.outreach@gmail.com
+    <div class="copy-hint" id="copy-hint">Click to copy</div>
+  </div>
+
+  <!-- Cancel confirm -->
+  <div class="cancel-confirm" id="cancel-confirm">
+    <div class="cancel-confirm-text">This removes Pro from this device. To fully cancel billing, manage your subscription in Stripe. You can re-activate anytime with your email.</div>
+    <div class="cancel-confirm-btns">
+      <button class="btn-cancel-yes" id="cancel-yes">Deactivate</button>
+      <button class="btn-cancel-no" id="cancel-no">Keep Pro</button>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="footer-link" id="support-btn">✉ Support</button>
+    <span class="footer-sep">·</span>
+    <button class="footer-link" id="get-key-btn">Get Pro</button>
+    <span class="footer-sep">·</span>
+    <button class="footer-link danger" id="cancel-sub-btn">Deactivate</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
