@@ -7,12 +7,16 @@
 
 // Guard against double injection by background.js
 if (window.__listingLensLoaded) {
-  // Already running — just re-init if needed
-  if (typeof window.__listingLensInit === 'function') {
+  // Already running — background.js re-injects on every matching URL update,
+  // including the same navigation the manifest's own content_scripts entry
+  // already handled. Only tear down and rebuild if the URL actually changed;
+  // otherwise this is a redundant re-run and would just flicker the sidebar.
+  if (typeof window.__listingLensInit === 'function' && window.__listingLensLastUrl !== window.location.href) {
     window.__listingLensInit();
   }
 } else {
 window.__listingLensLoaded = true;
+window.__listingLensLastUrl = window.location.href;
 
 (function () {
   "use strict";
@@ -22,6 +26,20 @@ window.__listingLensLoaded = true;
   const WORKER_URL = "https://listinglens-api.bison-animol.workers.dev";
   const SUPPORT_EMAIL = "listinglens.outreach@gmail.com";
   const STRIPE_URL = "https://buy.stripe.com/fZu28q3Tf2Xh84M2b13gk01";
+
+  // Escape untrusted text (AI response fields, scraped listing data) before
+  // it's interpolated into innerHTML — both sources are third-party content.
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[c]));
+  }
+
+  // A price_score of 0 is a valid (if extreme) AI answer — `|| 5` would
+  // silently treat it as missing, so check for a real number instead.
+  function safeScore(score) {
+    return Number.isFinite(score) ? score : 5;
+  }
 
   // ─── 1. Scrape listing data ──────────────────────────────────────────────
 
@@ -137,7 +155,12 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       throw new Error(code || `Error (${response.status})`);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("Invalid response from server. Try again.");
+    }
     const raw = data?.content || "";
     if (!raw) throw new Error("Empty response. Try again.");
     return parseAnalysis(raw);
@@ -159,7 +182,8 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 
   function generatePDF(data, listing) {
     const now = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const scoreColor = data.price_score >= 7 ? "#16a34a" : data.price_score >= 5 ? "#2563eb" : "#dc2626";
+    const score = safeScore(data.price_score);
+    const scoreColor = score >= 7 ? "#16a34a" : score >= 5 ? "#2563eb" : "#dc2626";
     const verdictColor = {
       "Good deal": "#16a34a",
       "Fairly priced": "#2563eb",
@@ -168,14 +192,14 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
     }[data.verdict] || "#6b7280";
 
     const flags = (items, icon) => items?.length
-      ? items.map(i => `<li style="margin:4px 0;padding:6px 10px;background:#f8fafc;border-radius:6px;font-size:13px;">${icon} ${i}</li>`).join("")
+      ? items.map(i => `<li style="margin:4px 0;padding:6px 10px;background:#f8fafc;border-radius:6px;font-size:13px;">${icon} ${escapeHtml(i)}</li>`).join("")
       : "<li style='color:#94a3b8;font-size:13px;padding:4px 0'>None identified</li>";
 
     const html = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>ListingLens Report — ${listing.address || "Property"}</title>
+<title>ListingLens Report — ${escapeHtml(listing.address || "Property")}</title>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 780px; margin: 0 auto; padding: 40px 30px; color: #1e293b; background: #fff; }
   .header { background: linear-gradient(135deg, #1d4ed8, #1e40af); color: white; padding: 28px 30px; border-radius: 12px; margin-bottom: 28px; }
@@ -189,7 +213,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
   .score-row { display: flex; align-items: center; gap: 12px; }
   .score-num { font-size: 28px; font-weight: 800; color: ${scoreColor}; }
   .score-bar-bg { flex: 1; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
-  .score-bar-fill { height: 100%; width: ${(data.price_score || 5) * 10}%; background: ${scoreColor}; border-radius: 4px; }
+  .score-bar-fill { height: 100%; width: ${score * 10}%; background: ${scoreColor}; border-radius: 4px; }
   .score-label { font-size: 12px; color: #94a3b8; }
   h2 { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin: 24px 0 10px; }
   ul { list-style: none; padding: 0; margin: 0; }
@@ -207,21 +231,21 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 <body>
   <div class="header">
     <h1>🏠 ListingLens Report</h1>
-    <p>${listing.address || listing.url}</p>
+    <p>${escapeHtml(listing.address || listing.url)}</p>
     <div class="meta">
-      ${listing.price ? `<span class="meta-item">💰 ${listing.price}</span>` : ""}
-      ${listing.beds ? `<span class="meta-item">🛏 ${listing.beds}</span>` : ""}
-      ${listing.sqft ? `<span class="meta-item">📐 ${listing.sqft}</span>` : ""}
-      ${listing.yearBuilt ? `<span class="meta-item">🏗 Built ${listing.yearBuilt}</span>` : ""}
-      ${listing.daysOnMarket ? `<span class="meta-item">📅 ${listing.daysOnMarket}</span>` : ""}
+      ${listing.price ? `<span class="meta-item">💰 ${escapeHtml(listing.price)}</span>` : ""}
+      ${listing.beds ? `<span class="meta-item">🛏 ${escapeHtml(listing.beds)}</span>` : ""}
+      ${listing.sqft ? `<span class="meta-item">📐 ${escapeHtml(listing.sqft)}</span>` : ""}
+      ${listing.yearBuilt ? `<span class="meta-item">🏗 Built ${escapeHtml(listing.yearBuilt)}</span>` : ""}
+      ${listing.daysOnMarket ? `<span class="meta-item">📅 ${escapeHtml(listing.daysOnMarket)}</span>` : ""}
     </div>
   </div>
 
   <div class="verdict-box">
-    <div class="verdict-label">${data.verdict || "Analysis Complete"}</div>
-    <div class="verdict-reason">${data.verdict_reason || ""}</div>
+    <div class="verdict-label">${escapeHtml(data.verdict || "Analysis Complete")}</div>
+    <div class="verdict-reason">${escapeHtml(data.verdict_reason || "")}</div>
     <div class="score-row">
-      <div class="score-num">${data.price_score || 5}/10</div>
+      <div class="score-num">${score}/10</div>
       <div style="flex:1">
         <div class="score-bar-bg"><div class="score-bar-fill"></div></div>
         <div class="score-label">Value score</div>
@@ -229,7 +253,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
     </div>
   </div>
 
-  ${data.market_context ? `<h2>Market Context</h2><div class="market-note">${data.market_context}</div>` : ""}
+  ${data.market_context ? `<h2>Market Context</h2><div class="market-note">${escapeHtml(data.market_context)}</div>` : ""}
 
   <h2>🚩 Red Flags</h2>
   <ul>${flags(data.red_flags, "🚩")}</ul>
@@ -237,22 +261,22 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
   <h2>✅ Positives</h2>
   <ul>${flags(data.green_flags, "✅")}</ul>
 
-  <h2>🤝 Negotiation Tips</h2>
+  <h2>🤝 Negotiation Tips (Pro)</h2>
   ${data.negotiation_tips?.length
-    ? data.negotiation_tips.map(t => `<div class="neg-tip">💡 ${t}</div>`).join("")
+    ? data.negotiation_tips.map(t => `<div class="neg-tip">💡 ${escapeHtml(t)}</div>`).join("")
     : "<div class='neg-tip' style='color:#94a3b8'>Not enough data for tips</div>"}
 
-  <h2>📊 Comparable Sales Note</h2>
-  <div class="comp-note">${data.comparable_note || "Comparable data not available for this listing."}</div>
+  <h2>📊 Comparable Sales Note (Pro)</h2>
+  <div class="comp-note">${escapeHtml(data.comparable_note || "Comparable data not available for this listing.")}</div>
 
-  <h2>📋 Offer Draft</h2>
-  <div class="offer-box">${data.offer_draft || "Not enough data to generate offer."}</div>
+  <h2>📋 Offer Draft (Pro)</h2>
+  <div class="offer-box">${escapeHtml(data.offer_draft || "Not enough data to generate offer.")}</div>
 
   <h2>❓ Questions to Ask</h2>
   <ul>${flags(data.questions_to_ask, "❓")}</ul>
 
   <h2>✉️ Draft Client Email</h2>
-  <div class="email-box">${data.client_email || ""}</div>
+  <div class="email-box">${escapeHtml(data.client_email || "")}</div>
 
   <div class="footer">
     <div class="footer-brand">🏠 ListingLens 2.0</div>
@@ -272,13 +296,13 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 
   // ─── 6. Render results ───────────────────────────────────────────────────
 
-  function renderResults(data, listing) {
+  function renderResults(data, listing, isPro) {
     const el = document.getElementById("ll-results");
     if (!el) return;
 
     if (data.error) {
       el.innerHTML = `
-        <div class="ll-error">${data.error}</div>
+        <div class="ll-error">${escapeHtml(data.error)}</div>
         <p class="ll-support-note">Need help? <a href="mailto:${SUPPORT_EMAIL}" class="ll-link">${SUPPORT_EMAIL}</a></p>
         <button class="ll-btn-secondary" id="ll-reset-btn">← Try again</button>`;
       document.getElementById("ll-reset-btn")?.addEventListener("click", resetToIdle);
@@ -292,7 +316,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       "Needs investigation": { color: "#b91c1c", bg: "rgba(185,28,28,0.08)", track: "#ef4444" },
     };
     const vc = verdictColors[data.verdict] || { color: "#475569", bg: "rgba(71,85,105,0.08)", track: "#94a3b8" };
-    const score = data.price_score || 5;
+    const score = safeScore(data.price_score);
     const circumference = 2 * Math.PI * 32; // r=32
     const offset = circumference - (score / 10) * circumference;
 
@@ -302,16 +326,25 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
     const qIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
 
     const redFlags = (items) => items?.length
-      ? items.map(i => `<div class="ll-flag-item ll-flag-danger"><div class="ll-flag-icon ll-flag-icon-danger">${warnIcon}</div><span>${i}</span></div>`).join("")
+      ? items.map(i => `<div class="ll-flag-item ll-flag-danger"><div class="ll-flag-icon ll-flag-icon-danger">${warnIcon}</div><span>${escapeHtml(i)}</span></div>`).join("")
       : `<p class="ll-empty">None identified</p>`;
 
     const greenFlags = (items) => items?.length
-      ? items.map(i => `<div class="ll-flag-item ll-flag-positive"><div class="ll-flag-icon ll-flag-icon-positive">${checkIcon}</div><span>${i}</span></div>`).join("")
+      ? items.map(i => `<div class="ll-flag-item ll-flag-positive"><div class="ll-flag-icon ll-flag-icon-positive">${checkIcon}</div><span>${escapeHtml(i)}</span></div>`).join("")
       : `<p class="ll-empty">None identified</p>`;
 
     const questions = (items) => items?.length
-      ? items.map(i => `<div class="ll-flag-item ll-flag-neutral"><div class="ll-flag-icon ll-flag-icon-neutral">${qIcon}</div><span>${i}</span></div>`).join("")
+      ? items.map(i => `<div class="ll-flag-item ll-flag-neutral"><div class="ll-flag-icon ll-flag-icon-neutral">${qIcon}</div><span>${escapeHtml(i)}</span></div>`).join("")
       : `<p class="ll-empty">None</p>`;
+
+    // Pro-gated content: show a locked upsell instead of the real AI output
+    // for non-Pro users, so the paywall actually restricts something.
+    const proLock = (label) => `
+      <div class="ll-pro-lock">
+        <span class="ll-pro-lock-icon">🔒</span>
+        <span class="ll-pro-lock-text">${label} is a Pro feature</span>
+        <button class="ll-btn-secondary ll-pro-lock-btn" data-pro-upsell>Unlock Pro →</button>
+      </div>`;
 
     // Tabs system
     el.innerHTML = `
@@ -330,8 +363,8 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
             <div class="ll-hero-score">${score}<span>.0</span></div>
           </div>
           <div class="ll-hero-text">
-            <div class="ll-hero-verdict" style="color:${vc.color}">${data.verdict || "Analysis complete"}</div>
-            <div class="ll-hero-reason">${data.verdict_reason || ""}</div>
+            <div class="ll-hero-verdict" style="color:${vc.color}">${escapeHtml(data.verdict || "Analysis complete")}</div>
+            <div class="ll-hero-reason">${escapeHtml(data.verdict_reason || "")}</div>
           </div>
         </div>
       </div>
@@ -340,7 +373,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       <div class="ll-tabs">
         <div class="ll-tab-slider" id="ll-tab-slider"></div>
         <button class="ll-tab active" data-tab="overview" data-idx="0">Overview</button>
-        <button class="ll-tab" data-tab="offer" data-idx="1">Offer</button>
+        <button class="ll-tab" data-tab="offer" data-idx="1">Offer ${isPro ? "" : "🔒"}</button>
         <button class="ll-tab" data-tab="email" data-idx="2">Email</button>
       </div>
 
@@ -349,7 +382,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
         ${data.market_context ? `
         <div class="ll-card">
           <div class="ll-card-title">Market Context</div>
-          <div class="ll-card-text">${data.market_context}</div>
+          <div class="ll-card-text">${escapeHtml(data.market_context)}</div>
         </div>` : ""}
 
         <div class="ll-card ll-card-danger">
@@ -364,15 +397,19 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 
         <div class="ll-card">
           <div class="ll-card-title">Negotiation Tips</div>
-          <div class="ll-flags-list">${data.negotiation_tips?.length
-            ? data.negotiation_tips.map(t => `<div class="ll-flag-item ll-flag-positive"><div class="ll-flag-icon ll-flag-icon-positive">${checkIcon}</div><span>${t}</span></div>`).join("")
-            : `<p class="ll-empty">Not enough data</p>`}
-          </div>
+          ${isPro
+            ? `<div class="ll-flags-list">${data.negotiation_tips?.length
+                ? data.negotiation_tips.map(t => `<div class="ll-flag-item ll-flag-positive"><div class="ll-flag-icon ll-flag-icon-positive">${checkIcon}</div><span>${escapeHtml(t)}</span></div>`).join("")
+                : `<p class="ll-empty">Not enough data</p>`}
+              </div>`
+            : proLock("Negotiation Tips")}
         </div>
 
         <div class="ll-card ll-card-purple">
           <div class="ll-card-title">Comparable Sales</div>
-          <div class="ll-card-text">${data.comparable_note || "Not available"}</div>
+          ${isPro
+            ? `<div class="ll-card-text">${escapeHtml(data.comparable_note || "Not available")}</div>`
+            : proLock("Comparable Sales")}
         </div>
 
         <div class="ll-card">
@@ -385,8 +422,10 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       <div class="ll-tab-content" id="tab-offer" style="display:none">
         <div class="ll-section">
           <div class="ll-section-title">📋 AI Offer Draft</div>
-          <div class="ll-offer-box">${data.offer_draft || "Not enough listing data to generate offer."}</div>
-          <button class="ll-btn-secondary" id="ll-copy-offer-btn">📋 Copy offer draft</button>
+          ${isPro
+            ? `<div class="ll-offer-box">${escapeHtml(data.offer_draft || "Not enough listing data to generate offer.")}</div>
+               <button class="ll-btn-secondary" id="ll-copy-offer-btn">📋 Copy offer draft</button>`
+            : proLock("Offer Draft")}
         </div>
       </div>
 
@@ -394,14 +433,14 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       <div class="ll-tab-content" id="tab-email" style="display:none">
         <div class="ll-section">
           <div class="ll-section-title">✉️ Draft client email</div>
-          <div class="ll-email-box">${data.client_email || ""}</div>
+          <div class="ll-email-box">${escapeHtml(data.client_email || "")}</div>
           <button class="ll-btn-secondary" id="ll-copy-email-btn">📋 Copy email</button>
         </div>
       </div>
 
       <!-- Actions -->
       <div class="ll-actions">
-        <button class="ll-btn-pdf" id="ll-pdf-btn">📄 Download Report (HTML)</button>
+        <button class="${isPro ? "ll-btn-pdf" : "ll-btn-pdf ll-btn-locked"}" id="ll-pdf-btn">${isPro ? "📄 Download Report (HTML)" : "🔒 PDF Report — Pro"}</button>
         <button class="ll-btn-secondary" id="ll-reset-btn">← Analyze again</button>
       </div>
 
@@ -447,9 +486,18 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       if (b) { b.textContent = "✓ Copied!"; setTimeout(() => { b.textContent = "📋 Copy email"; }, 2000); }
     });
 
-    // PDF
+    // PDF — Pro only; free users get sent to the upgrade flow instead
     document.getElementById("ll-pdf-btn")?.addEventListener("click", () => {
-      generatePDF(data, listing);
+      if (isPro) {
+        generatePDF(data, listing);
+      } else {
+        window.open(STRIPE_URL, "_blank");
+      }
+    });
+
+    // Locked Pro sections' "Unlock Pro" buttons
+    el.querySelectorAll("[data-pro-upsell]").forEach((btn) => {
+      btn.addEventListener("click", () => window.open(STRIPE_URL, "_blank"));
     });
 
     document.getElementById("ll-reset-btn")?.addEventListener("click", resetToIdle);
@@ -933,6 +981,21 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 }
 .ll-footer-email:hover{color:#4338ca;background:#eff6ff}
 
+/* ── Pro-locked section ── */
+.ll-pro-lock{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:16px 10px;text-align:center;
+}
+.ll-pro-lock-icon{font-size:18px}
+.ll-pro-lock-text{font-size:12px;color:#94a3b8;font-weight:600}
+.ll-pro-lock-btn{
+  width:auto;padding:7px 14px;margin-top:2px;
+  color:#4338ca;border-color:#c7d2fe;font-weight:700;
+}
+.ll-pro-lock-btn:hover{background:#eef2ff;border-color:#a5b4fc}
+.ll-btn-pdf.ll-btn-locked{color:#94a3b8;border-color:#e2e8f0}
+.ll-btn-pdf.ll-btn-locked:hover{background:#f8fafc;border-color:#cbd5e1}
+
 /* ── Toggle button ── */
 #ll-toggle-btn{
   position:fixed;bottom:20px;right:20px;z-index:2147483646;
@@ -1020,13 +1083,13 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
       showLoading();
       const listing = scrapeListing();
       try {
-        const analysis = await analyzeListing(listing);
+        const [analysis, isPro] = await Promise.all([analyzeListing(listing), checkUnlocked()]);
         await bumpUsage();
-        renderResults(analysis, listing);
+        renderResults(analysis, listing, isPro);
         showResults();
       } catch (err) {
         if (err.message === "__PAYWALL__") { showPaywall(); return; }
-        renderResults({ error: `Error: ${err.message}` }, listing);
+        renderResults({ error: `Error: ${err.message}` }, listing, false);
         showResults();
       }
     });
@@ -1120,6 +1183,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 
   // Expose init for background.js re-injection
   window.__listingLensInit = function() {
+    window.__listingLensLastUrl = window.location.href;
     document.getElementById(SIDEBAR_ID)?.remove();
     document.getElementById("ll-toggle-btn")?.remove();
     document.getElementById("ll-styles")?.remove();
@@ -1147,6 +1211,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
   new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
+      window.__listingLensLastUrl = location.href;
       document.getElementById(SIDEBAR_ID)?.remove();
       document.getElementById("ll-toggle-btn")?.remove();
       document.getElementById("ll-styles")?.remove();

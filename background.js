@@ -11,6 +11,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     chrome.scripting.executeScript({
       target: { tabId },
       files: ["content.js"]
-    }).catch(() => {}); // ignore if already injected
+    }).catch((err) => {
+      console.warn("ListingLens: content script injection failed", err);
+    });
   }
 });
