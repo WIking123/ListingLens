@@ -1,5 +1,5 @@
 const WORKER_URL = "https://listinglens-api.bison-animol.workers.dev";
-const STRIPE_URL = "https://buy.stripe.com/fZu28q3Tf2Xh84M2b13gk01";
+const STRIPE_URL = "https://buy.stripe.com/eVq00igG1apJ2Ks8zp3gk02";
 const FREE_LIMIT = 5;
 const SUPPORT_EMAIL = "listinglens.outreach@gmail.com";
 
