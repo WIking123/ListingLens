@@ -60,20 +60,20 @@ window.__listingLensLastUrl = window.location.href;
     };
     const fullPageText = document.body.innerText || "";
 
-    const price = get(['[data-testid="price"]', 'span[data-testid="price"]', '.summary-container span[class*="price"]', 'span[class*="Price"]'])
+    const price = get(['[data-testid="price"]', 'span[data-testid="price"]', '.summary-container span[class*="price"]', 'span[class*="Price"]', '[data-rf-test-id="abp-price"]'])
       || (fullPageText.match(/\$[\d,]+(?:\.\d+)?(?:\/mo)?/)?.[0] || "");
-    const address = get(["h1", '[data-testid="bdp-building-name"]', '[class*="street-address"]']);
-    const bedsRaw = getAll(['[data-testid="bed-bath-beyond"] span', '[class*="summary-container"] [class*="beds"]', 'button[data-testid="bed-bath-item"]']);
+    const address = get(["h1", '[data-testid="bdp-building-name"]', '[class*="street-address"]', '[data-rf-test-id="abp-streetLine"]']);
+    const bedsRaw = getAll(['[data-testid="bed-bath-beyond"] span', '[class*="summary-container"] [class*="beds"]', 'button[data-testid="bed-bath-item"]', '[data-rf-test-id="abp-beds"]', '[data-rf-test-id="abp-baths"]']);
     const beds = bedsRaw || (fullPageText.match(/(\d+)\s*(?:bd|bed|beds)/i)?.[0] || "") + " " + (fullPageText.match(/(\d+)\s*(?:ba|bath|baths)/i)?.[0] || "");
-    const sqft = get(['[data-testid="floor-area"]', '[class*="sqft"]', '[class*="floorArea"]'])
+    const sqft = get(['[data-testid="floor-area"]', '[class*="sqft"]', '[class*="floorArea"]', '[data-rf-test-id="abp-sqFt"]'])
       || (fullPageText.match(/([\d,]+)\s*(?:sqft|sq\s*ft)/i)?.[0] || "");
-    const description = get(['[data-testid="listing-description"]', '[class*="listing-description"]', "article", "section p"]).slice(0, 1000)
+    const description = get(['[data-testid="listing-description"]', '[class*="listing-description"]', ".remarks", '[data-rf-test-id="listing-remarks"]', "article", "section p"]).slice(0, 1000)
       || fullPageText.slice(0, 500);
-    const facts = getAll(['[data-testid="fact-and-feature"] li', '[class*="fact"] li', '[class*="feature"] li', "dl dt, dl dd"]).slice(0, 600);
+    const facts = getAll(['[data-testid="fact-and-feature"] li', '[class*="fact"] li', '[class*="feature"] li', ".keyDetails-row", "dl dt, dl dd"]).slice(0, 600);
     const zestimate = get(['[data-testid="zestimate-text"]', '[class*="zestimate"]', '[class*="Zestimate"]'])
       || (fullPageText.match(/Zestimate[^\$]*(\$[\d,]+)/i)?.[1] || "");
     const daysOnMarket = get(['[data-testid="days-on-zillow"]', '[class*="days-on"]'])
-      || (fullPageText.match(/(\d+)\s*days?\s*on\s*(?:Zillow|market)/i)?.[0] || "");
+      || (fullPageText.match(/(\d+)\s*days?\s*on\s*(?:Zillow|Redfin|market)/i)?.[0] || "");
     const yearBuilt = get(['[data-testid="year-built"]', '[class*="yearBuilt"]'])
       || (fullPageText.match(/(?:built|year built)[:\s]*(\d{4})/i)?.[1] || "");
     const propertyType = get(['[data-testid="property-type"]', '[class*="propertyType"]'])
@@ -560,7 +560,7 @@ Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
             <div class="ll-pro-feature">📊 Comparable Sales</div>
             <div class="ll-pro-feature">📄 PDF Client Reports</div>
           </div>
-          <button class="ll-btn-primary" id="ll-upgrade-btn">Start 7-day free trial — then $24/mo →</button>
+          <button class="ll-btn-primary" id="ll-upgrade-btn">Upgrade to Pro — $15/mo →</button>
           <div class="ll-divider">already subscribed? enter your email</div>
           <button class="ll-btn-secondary" id="ll-license-btn">Activate</button>
           <input class="ll-license-input" id="ll-license-input" type="email" placeholder="you@email.com" style="display:none" />

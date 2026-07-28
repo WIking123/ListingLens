@@ -4,7 +4,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     changeInfo.url &&
     (
       changeInfo.url.includes("zillow.com/homedetails/") ||
-      changeInfo.url.includes("realtor.com/realestateandhomes-detail/")
+      changeInfo.url.includes("realtor.com/realestateandhomes-detail/") ||
+      /redfin\.(com|ca)\/.*\/home\//.test(changeInfo.url)
     )
   ) {
     // URL changed to a listing page — inject content script
