@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "ListingLens — AI for Realtors",
-  "version": "2.2.0",
-  "description": "AI listing analysis on Zillow, Realtor.com & Redfin. Price score, red flags, offer generator, and client email in seconds.",
+  "name": "ListingLens: Zillow, Redfin & Realtor.com AI Analyzer",
+  "version": "2.3.0",
+  "description": "AI listing analysis for Zillow, Realtor.com & Redfin (US & Canada). Price score, red flags, offer generator, client email.",
   "permissions": [
     "storage",
     "scripting",
