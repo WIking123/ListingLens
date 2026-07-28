@@ -104,6 +104,8 @@ LISTING DATA:
 - Listing description: ${l.description || "Not available"}
 - Key features/facts: ${l.facts || "Not available"}
 
+Important: "Not available" above means this specific field could not be extracted from the page — it is a data gap, not a fact about the property. Never list a missing field itself (e.g. "year built not available") as a red flag or green flag. Only include red_flags/green_flags that describe something genuinely concerning or positive about the property based on the data you do have. If too little data is available to identify real flags, return fewer items (or an empty list) rather than substituting missing-data notices.
+
 Respond ONLY with valid JSON — no markdown, no explanation, just raw JSON:
 
 {
