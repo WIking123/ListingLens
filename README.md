@@ -37,7 +37,7 @@ Free tier includes 5 full analyses, no signup and no credit card required.
 
 | Overview | Offer draft | Client email |
 |---|---|---|
-| ![Overview tab showing price score, market context, and red flags](screenshots/overview.png) | ![Offer tab showing the AI-drafted offer](screenshots/offer.png) | ![Email tab showing the drafted client email](screenshots/email.png) |
+| ![Overview tab showing price score, market context, and red flags](screenshots/overview.jpg) | ![Offer tab showing the AI-drafted offer](screenshots/offer.jpg) | ![Email tab showing the drafted client email](screenshots/email.jpg) |
 
 ## Supported sites
 
